@@ -80,7 +80,7 @@ def extract_frames():
 
 # Define the client class
 class Client:
-    def __init__(self, host='localhost', port=80):
+    def __init__(self, host='20.33.92.38', port=80):
         self.host = host
         self.port = port
         self.close_socket = False
@@ -139,13 +139,15 @@ class Client:
                 sleep(1)
 
             #print(f'People count for every frame: {self.people_frames}')
-            # Save results to CSV and plot graph
-            self.save_to_csv()
-            self.plot_graph()
+            
 
         finally:
             client_socket.close()
             print('Connection closed.')
+
+            # Save results to CSV and plot graph
+            self.save_to_csv()
+            self.plot_graph()
     
 
     def recv_all(self, socket, length):
