@@ -5,7 +5,7 @@ from pynput.mouse import Listener
 from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
-from time import sleep
+from time import sleep, time
 import os
 from dotenv import load_dotenv
 import os
@@ -85,6 +85,7 @@ class Client:
         self.frame_times = []
         self.people_frames = [] # List to save the people count for each frame
         self.azure_client = None
+        self.response_times = []
         
     def start(self):
         # Clear the frames folder before extracting frames
@@ -122,12 +123,16 @@ class Client:
                 print(f'[INFO] Sending frame {frame}...')
 
                 # Send the image to Azure AI for analysis
+                send_time = time()
                 response = self.azure_client.analyze(
                     img_data,
                     visual_features=[VisualFeatures.PEOPLE],
                     language='en'
                 )
                 
+                # Calculate the response time
+                response_time = (time() - send_time)
+                self.response_times.append(response_time)
                 # go through each response people
                 people_counter = sum(1 for person in response.people.list if person.confidence > 0.5)
                 self.people_frames.append(people_counter)
@@ -149,18 +154,20 @@ class Client:
             # Save results to CSV and plot graph
             self.save_count_to_csv()
             self.plot_graph()
-    
+            self.save_response_times_to_csv()
 
-    def recv_all(self, socket, length):
-        # Ensure receiving the full length of the message.
-        data = b''
-        while len(data) < length:
-            packet = socket.recv(length - len(data))
-            if not packet:
-                return None
-            data += packet
-        return data
+    def save_response_times_to_csv(self):
+        # Save response times to CSV
+        csv_data = {
+            'Timestamp': self.frame_times,
+            'Response_Time': self.response_times
+        }
+        df = pd.DataFrame(csv_data)
 
+        # Save DataFrame to a CSV file
+        csv_filename = 'azure_ai_response_times.csv'
+        df.to_csv(csv_filename, index=False)
+        print(f'[INFO] Response times saved to {csv_filename}')
 
     def save_count_to_csv(self):
         # Save data to CSV

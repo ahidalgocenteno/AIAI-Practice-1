@@ -8,7 +8,7 @@ import pickle
 from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
-from time import sleep
+from time import sleep, time
 import os
 
 
@@ -87,6 +87,7 @@ class Client:
         self.cont = 0
         self.frame_times = []
         self.people_frames = [] # List to save the people count for each frame
+        self.response_times = [] # List to save the response times for each frame
         
     def start(self):
         # Clear the frames folder before extracting frames
@@ -115,6 +116,7 @@ class Client:
                 print(f'[INFO] Sending frame {frame}...')
 
                 # Send the serialized image to the server
+                send_time = time()
                 client_socket.sendall(result)
                 client_socket.sendall(str.encode('foto'))         
             
@@ -124,6 +126,8 @@ class Client:
                     print(f"[ERROR] Failed to receive data from server for frame {i}")
                     break
 
+                response_time = (time() - send_time)
+                self.response_times.append(response_time)
                 people_counter = int(data.decode('utf8'))
                 self.people_frames.append(people_counter)
                 print(f'[INFO] People in frame {i+1}: {people_counter}')
@@ -148,6 +152,7 @@ class Client:
             # Save results to CSV and plot graph
             self.save_to_csv()
             self.plot_graph()
+            self.save_respose_times_to_csv()
     
 
     def recv_all(self, socket, length):
@@ -160,6 +165,18 @@ class Client:
             data += packet
         return data
 
+    def save_respose_times_to_csv(self):
+        # Save response times to CSV
+        csv_data = {
+            'Timestamp': self.frame_times,
+            'Response_Time': self.response_times
+        }
+        df = pd.DataFrame(csv_data)
+
+        # Save DataFrame to a CSV file
+        csv_filename = 'response_times.csv'
+        df.to_csv(csv_filename, index=False)
+        print(f'[INFO] Response times saved to {csv_filename}')
 
     def save_to_csv(self):
         # Save data to CSV
@@ -201,5 +218,5 @@ class Client:
 
 # Start the client
 if __name__ == "__main__":
-    client = Client()
+    client = Client(host='20.33.92.38')
     client.start()
