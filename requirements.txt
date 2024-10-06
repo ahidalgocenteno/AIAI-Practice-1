@@ -4,3 +4,5 @@ opencv-python
 mss
 pynput
 ultralytics
+azure-ai-vision-imageanalysis
+dotenv
