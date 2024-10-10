@@ -7,6 +7,7 @@ from pynput.mouse import Listener
 import pickle
 from datetime import datetime
 import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoLocator, AutoMinorLocator
 import pandas as pd
 from time import sleep, time
 import os
@@ -204,7 +205,9 @@ class Client:
         plt.xticks(rotation=45, ha='right')  # Rotate x-axis labels for better readability
         
         # Limit the number of ticks
-        plt.gca().xaxis.set_major_locator(plt.MaxNLocator(nbins=20))  # Adjust the number of ticks as needed
+        plt.gca().xaxis.set_major_locator(AutoLocator())  # Adjust the number of ticks as needed 
+        # Add minor ticks
+        plt.gca().xaxis.set_minor_locator(AutoMinorLocator())
 
         plt.tight_layout()  # Adjust layout to ensure everything fits without overlap
 
