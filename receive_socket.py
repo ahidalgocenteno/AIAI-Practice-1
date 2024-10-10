@@ -6,17 +6,18 @@ import numpy as np
 import cv2
 from ultralytics import YOLO
 import time
-import threading
+from concurrent.futures import ThreadPoolExecutor
 
 # Define the server class
 class Server:
-    def __init__(self, host='localhost', port=80, num_clients=1):
+    def __init__(self, host='localhost', port=80, num_clients=4, max_workers=8):
         self.host = host
         self.port = port
         self.num_clients = num_clients
         self.connected_clients = 0
         self.disconnected_clients = 0
         self.server_socket = None
+        self.max_workers = max_workers
 
     
     def start(self):
@@ -27,31 +28,31 @@ class Server:
         
         print(f"Server started, waiting for clients on {self.host}:{self.port}...")
 
-        try:
-            while True:
-                if self.connected_clients == self.num_clients:
-                    print('[INFO] Maximum number of clients reached. No more connections will be accepted')
-                    break
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            try:
+                while True:
+                    if self.connected_clients == self.num_clients:
+                        print('\n[INFO] Maximum number of clients reached. No more connections will be accepted')
+                        break
 
-                # Accept new client connection
-                client_socket, addr = self.server_socket.accept()
-                self.connected_clients += 1
-                print(f"Client {addr} connected. Total connected clients: {self.connected_clients}/{self.num_clients}")
-                
-                # Start a new thread to handle the client
-                client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
-                client_thread.start()
+                    # Accept new client connection
+                    client_socket, addr = self.server_socket.accept()
+                    self.connected_clients += 1
+                    print(f"\nClient {addr} connected. Total connected clients: {self.connected_clients}/{self.num_clients}")
+                    
+                    # Submit the client handler to the executor
+                    executor.submit(self.handle_client, client_socket, addr)
 
-            # Wait for all clients to disconnect before shutting down
-            while self.disconnected_clients < self.num_clients:
-                time.sleep(1)  # Sleep for a short time to avoid busy waiting
+                # Wait for all clients to disconnect before shutting down
+                while self.disconnected_clients < self.num_clients:
+                    time.sleep(1)  # Sleep for a short time to avoid busy waiting
 
-        finally:
-            self.server_socket.close()
-            print("[INFO] Server has shut down.")
+            finally:
+                self.server_socket.close()
+                print("\n[INFO] Server has shut down.")
 
 
-    def handle_client(self, client_socket):
+    def handle_client(self, client_socket, addr):
         yolo_net = YOLO("yolov8n.pt")
         
         try:
@@ -61,9 +62,10 @@ class Server:
 
                 while True:
                     packet = client_socket.recv(4096)
+
                     if not packet:
-                        print("[INFO] Client disconnected.")
-                        return  # Exit the loop and close the thread
+                        print(f"\n[INFO] Connection closed with client {addr}.")
+                        return  
                     
                     if str.encode("foto") in packet:
                         index = packet.find(str.encode("foto"))
@@ -83,7 +85,7 @@ class Server:
                     continue
 
                 if result is not None:
-                    print(f"[INFO] Data received from client, processing...")
+                    print(f"[INFO] Data received from client {addr}, processing...")
 
                     # Add a short delay to prevent timing issues
                     time.sleep(0.1)  # Delay of 100 milliseconds
@@ -97,25 +99,21 @@ class Server:
                         if class_id == 0 and confidence > 0.5:
                             person_count += 1
 
-                    print(f"People Counter: {person_count}\n")
-
                     # Send the number of people detected to the client
                     client_socket.sendall(str(person_count).encode('utf8'))
-
                     # Add a short delay to avoid timing issues
                     time.sleep(0.1)
-
                     # Send a 'done' message
                     client_socket.sendall(b'done')
         
         finally:
             client_socket.close()
-            print("Connection closed with client.")
+            #print("Connection closed with client.")
             self.disconnected_clients += 1
-            print(f"[INFO] Client disconnected. Total disconnected clients: {self.disconnected_clients}/{self.num_clients}")
+            print(f"[INFO] Client {addr} disconnected. Total disconnected clients: {self.disconnected_clients}/{self.num_clients}")
 
 
 # Start the server
 if __name__ == "__main__":
-    server = Server()
+    server = Server(host='localhost', port=80, num_clients=4, max_workers=8)
     server.start()
