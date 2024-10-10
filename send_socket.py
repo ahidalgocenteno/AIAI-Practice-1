@@ -126,6 +126,8 @@ class Client:
                 if not data:
                     print(f"[ERROR] Failed to receive data from server for frame {i}")
                     break
+                
+                done_message = self.recv_all(client_socket, 4)  # Ensure full "done" message is received
 
                 response_time = (time() - send_time)
                 self.response_times.append(response_time)
@@ -134,12 +136,13 @@ class Client:
                 print(f'[INFO] People in frame {i+1}: {people_counter}')
 
                 # Wait for the 'done' message before sending the next frame
-                done_message = self.recv_all(client_socket, 4)  # Ensure full "done" message is received
-                if done_message.decode('utf8') == 'done':
-                    print('[INFO] Server processed the frame. Sending next one...\n')
-                else:
+                #done_message = self.recv_all(client_socket, 4)  # Ensure full "done" message is received
+                if not done_message:
                     print(f"[ERROR] Did not receive 'done' message from server for frame {i}")
                     break
+
+                if done_message.decode('utf8') == 'done':
+                    print('[INFO] Server processed the frame. Sending next one...\n')
 
                 sleep(1)
 
